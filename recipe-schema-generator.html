@@ -10,13 +10,14 @@ header { background: #2c2c2c; color: #f5f5f0; padding: 1.5rem 2rem; }
 header h1 { font-size: 1.6rem; font-weight: normal; }
 header h1 span { color: #c8784a; font-style: italic; }
 header p { margin-top: 0.4rem; font-size: 0.82rem; color: #aaa; font-family: Arial, sans-serif; line-height: 1.5; }
-#keyBar { background: #3c3c3c; padding: 0.75rem 2rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-#keyBar label { font-size: 0.78rem; font-family: Arial, sans-serif; color: #ccc; white-space: nowrap; }
-#keyInput { flex: 1; min-width: 200px; max-width: 420px; padding: 0.4rem 0.65rem; font-family: Arial, sans-serif; font-size: 0.78rem; border: 1px solid #555; border-radius: 3px; background: #2c2c2c; color: #f5f5f0; outline: none; }
-#keyInput:focus { border-color: #c8784a; }
-#saveKeyBtn { padding: 0.4rem 0.9rem; background: #c8784a; color: #fff; border: none; border-radius: 3px; font-family: Arial, sans-serif; font-size: 0.78rem; cursor: pointer; white-space: nowrap; }
-#saveKeyBtn:hover { background: #a85e35; }
-#keyStatus { font-size: 0.75rem; font-family: Arial, sans-serif; color: #8c8; }
+#keyBar { background: #3c3c3c; padding: 0.75rem 2rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.key-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.key-row label { font-size: 0.78rem; font-family: Arial, sans-serif; color: #ccc; white-space: nowrap; width: 160px; }
+.key-row input { flex: 1; min-width: 200px; max-width: 420px; padding: 0.4rem 0.65rem; font-family: Arial, sans-serif; font-size: 0.78rem; border: 1px solid #555; border-radius: 3px; background: #2c2c2c; color: #f5f5f0; outline: none; }
+.key-row input:focus { border-color: #c8784a; }
+.key-row button { padding: 0.4rem 0.9rem; background: #c8784a; color: #fff; border: none; border-radius: 3px; font-family: Arial, sans-serif; font-size: 0.78rem; cursor: pointer; white-space: nowrap; }
+.key-row button:hover { background: #a85e35; }
+#keyStatus { font-size: 0.75rem; font-family: Arial, sans-serif; color: #8c8; padding-left: 0.5rem; }
 main { max-width: 1040px; margin: 0 auto; padding: 2rem 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; align-items: start; }
 .panel { background: #fff; border: 1px solid #ddd; border-radius: 4px; }
 .panel-head { padding: 0.9rem 1.2rem; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between; }
@@ -68,10 +69,20 @@ textarea:focus { border-color: #5a3e1b; }
 </header>
 
 <div id="keyBar">
-  <label for="keyInput">Anthropic API Key:</label>
-  <input type="password" id="keyInput" placeholder="sk-ant-..." autocomplete="off" />
-  <button id="saveKeyBtn" onclick="saveKey()">Save Key</button>
-  <span id="keyStatus"></span>
+  <div class="key-row">
+    <label for="anthropicKey">Anthropic API Key:</label>
+    <input type="password" id="anthropicKey" placeholder="sk-ant-..." autocomplete="off" />
+    <button onclick="saveKeys()">Save Keys</button>
+    <span id="keyStatus"></span>
+  </div>
+  <div class="key-row">
+    <label for="githubToken">GitHub Token:</label>
+    <input type="password" id="githubToken" placeholder="ghp_..." autocomplete="off" />
+  </div>
+  <div class="key-row">
+    <label for="githubUser">GitHub Username:</label>
+    <input type="text" id="githubUser" placeholder="your-github-username" autocomplete="off" />
+  </div>
 </div>
 
 <main>
@@ -107,7 +118,7 @@ Instructions:
       <span class="step">2</span>
     </div>
     <div class="empty" id="empty">
-      Parse a recipe first, then you will get a URL to paste into AnyList.
+      Parse a recipe first, then click Step 2 to get your AnyList import URL.
     </div>
     <div class="preview" id="preview">
       <div class="prev-title" id="pTitle"></div>
@@ -116,7 +127,7 @@ Instructions:
       <div id="pIng"></div>
       <div id="pSteps"></div>
 
-      <button class="btn btn-green" id="uploadBtn" onclick="uploadAndGetURL()">Step 2: Get AnyList Import URL</button>
+      <button class="btn btn-green" id="uploadBtn" onclick="uploadToGitHub()">Step 2: Get AnyList Import URL</button>
       <div class="status" id="uploadStatus"></div>
 
       <div class="url-box" id="urlBox" style="display:none;">
@@ -128,7 +139,7 @@ Instructions:
           4. Paste the URL and import
         </div>
         <input type="text" class="url-display" id="urlDisplay" readonly onclick="this.select();" />
-        <button class="copy-btn" onclick="copyURL()">Copy URL</button>
+        <button class="copy-btn" id="copyBtn" onclick="copyURL()">Copy URL</button>
       </div>
     </div>
   </div>
@@ -140,28 +151,44 @@ var parsedRecipe = null;
 var SYSTEM = "You are a recipe parser. Extract structured data from recipe text. Return ONLY valid JSON, no markdown, no explanation, no code fences.\n\nReturn this exact structure:\n{\n  \"name\": \"Recipe title\",\n  \"description\": \"1-2 sentence description (infer if missing)\",\n  \"prepTime\": \"PT20M\",\n  \"cookTime\": \"PT1H30M\",\n  \"totalTime\": \"PT1H50M\",\n  \"recipeYield\": \"4 servings\",\n  \"recipeCategory\": \"Dinner\",\n  \"recipeCuisine\": \"Italian\",\n  \"keywords\": \"keyword1, keyword2\",\n  \"recipeIngredient\": [\"2 cups flour\", \"1 tsp salt\"],\n  \"recipeInstructions\": [\"Step text\", \"Step text\"],\n  \"nutrition\": { \"calories\": \"320 calories\" }\n}\nRules:\n- Times use ISO 8601 format: PT20M means 20 minutes, PT1H means 1 hour, PT1H30M means 1 hour 30 minutes. Use PT0M if unknown.\n- Strip any leading numbers or dots from instruction steps.\n- For unknown fields use empty string or empty array.\n- Always write a useful description even if you have to infer it.\n- recipeYield must include a unit such as servings or cookies.";
 
 window.onload = function() {
-  var saved = localStorage.getItem("anthropic_api_key");
-  if (saved) {
-    document.getElementById("keyInput").value = saved;
-    document.getElementById("keyStatus").textContent = "Key loaded.";
+  var ak = localStorage.getItem("anthropic_api_key");
+  var gt = localStorage.getItem("github_token");
+  var gu = localStorage.getItem("github_user");
+  if (ak) document.getElementById("anthropicKey").value = ak;
+  if (gt) document.getElementById("githubToken").value = gt;
+  if (gu) document.getElementById("githubUser").value = gu;
+  if (ak && gt && gu) {
+    document.getElementById("keyStatus").textContent = "Keys loaded.";
   }
 };
 
-function saveKey() {
-  var key = document.getElementById("keyInput").value.trim();
-  if (!key) {
-    document.getElementById("keyStatus").textContent = "Please enter a key first.";
-    document.getElementById("keyStatus").style.color = "#c84a2a";
+function saveKeys() {
+  var ak = document.getElementById("anthropicKey").value.trim();
+  var gt = document.getElementById("githubToken").value.trim();
+  var gu = document.getElementById("githubUser").value.trim();
+  var status = document.getElementById("keyStatus");
+
+  if (!ak || !gt || !gu) {
+    status.textContent = "Please fill in all three fields.";
+    status.style.color = "#c84a2a";
     return;
   }
-  if (!key.startsWith("sk-ant-")) {
-    document.getElementById("keyStatus").textContent = "That does not look right -- key should start with sk-ant-";
-    document.getElementById("keyStatus").style.color = "#c84a2a";
+  if (!ak.startsWith("sk-ant-")) {
+    status.textContent = "Anthropic key should start with sk-ant-";
+    status.style.color = "#c84a2a";
     return;
   }
-  localStorage.setItem("anthropic_api_key", key);
-  document.getElementById("keyStatus").textContent = "Key saved.";
-  document.getElementById("keyStatus").style.color = "#8c8";
+  if (!gt.startsWith("ghp_") && !gt.startsWith("github_pat_")) {
+    status.textContent = "GitHub token should start with ghp_ or github_pat_";
+    status.style.color = "#c84a2a";
+    return;
+  }
+
+  localStorage.setItem("anthropic_api_key", ak);
+  localStorage.setItem("github_token", gt);
+  localStorage.setItem("github_user", gu);
+  status.textContent = "All keys saved.";
+  status.style.color = "#8c8";
 }
 
 function setStatus(id, type, msg) {
@@ -188,10 +215,64 @@ function escHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+function slugify(name) {
+  return (name || "recipe").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .substring(0, 50);
+}
+
+function buildRecipePage(r) {
+  var schema = {
+    "@context": "https://schema.org",
+    "@type": "Recipe",
+    "name": r.name || "",
+    "description": r.description || "",
+    "recipeYield": r.recipeYield || "",
+    "prepTime": r.prepTime || "PT0M",
+    "cookTime": r.cookTime || "PT0M",
+    "totalTime": r.totalTime || "PT0M",
+    "recipeCategory": r.recipeCategory || "",
+    "recipeCuisine": r.recipeCuisine || "",
+    "keywords": r.keywords || "",
+    "recipeIngredient": r.recipeIngredient || [],
+    "recipeInstructions": (r.recipeInstructions || []).map(function(s, i) {
+      return { "@type": "HowToStep", "position": i + 1, "text": s };
+    })
+  };
+  if (r.nutrition && r.nutrition.calories) {
+    schema.nutrition = { "@type": "NutritionInformation", "calories": r.nutrition.calories };
+  }
+
+  var ingsHtml = (r.recipeIngredient || []).map(function(i) {
+    return "<li>" + escHtml(i) + "</li>";
+  }).join("");
+
+  var stepsHtml = (r.recipeInstructions || []).map(function(s) {
+    return "<li>" + escHtml(s) + "</li>";
+  }).join("");
+
+  return '<!DOCTYPE html>' +
+    '<html lang="en"><head>' +
+    '<meta charset="UTF-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    '<title>' + escHtml(r.name || "Recipe") + '</title>' +
+    '<script type="application/ld+json">' +
+    JSON.stringify(schema) +
+    '<\/script>' +
+    '<style>body{font-family:Georgia,serif;max-width:700px;margin:2rem auto;padding:0 1.5rem;background:#f5f5f0;color:#1a1a1a;}h1{font-size:2rem;margin-bottom:0.5rem;}h2{font-size:1.1rem;color:#5a3e1b;margin:1.5rem 0 0.5rem;border-bottom:1px solid #ddd;padding-bottom:0.25rem;}ul,ol{padding-left:1.5rem;}li{margin:0.35rem 0;font-family:Arial,sans-serif;font-size:0.95rem;line-height:1.6;}p{font-family:Arial,sans-serif;color:#666;margin-bottom:1rem;}<\/style>' +
+    '</head><body>' +
+    '<h1>' + escHtml(r.name || "Recipe") + '</h1>' +
+    (r.description ? '<p>' + escHtml(r.description) + '</p>' : '') +
+    '<h2>Ingredients</h2><ul>' + ingsHtml + '</ul>' +
+    '<h2>Instructions</h2><ol>' + stepsHtml + '</ol>' +
+    '</body></html>';
+}
+
 async function generate() {
-  var key = localStorage.getItem("anthropic_api_key") || document.getElementById("keyInput").value.trim();
-  if (!key) {
-    setStatus("status", "error", "Please enter and save your API key first.");
+  var ak = localStorage.getItem("anthropic_api_key") || document.getElementById("anthropicKey").value.trim();
+  if (!ak) {
+    setStatus("status", "error", "Please enter and save your keys first.");
     return;
   }
   var input = document.getElementById("recipeInput").value.trim();
@@ -212,7 +293,7 @@ async function generate() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": key,
+        "x-api-key": ak,
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true"
       },
@@ -288,150 +369,68 @@ function renderPreview(r) {
   document.getElementById("preview").classList.add("show");
 }
 
-async function uploadAndGetURL() {
+async function uploadToGitHub() {
   if (!parsedRecipe) return;
+
+  var gt = localStorage.getItem("github_token") || document.getElementById("githubToken").value.trim();
+  var gu = localStorage.getItem("github_user") || document.getElementById("githubUser").value.trim();
+
+  if (!gt || !gu) {
+    setStatus("uploadStatus", "error", "Please enter and save your GitHub token and username first.");
+    return;
+  }
 
   var btn = document.getElementById("uploadBtn");
   btn.disabled = true;
-  setStatus("uploadStatus", "loading", "Uploading recipe data...");
+  setStatus("uploadStatus", "loading", "Saving recipe to GitHub...");
   document.getElementById("urlBox").style.display = "none";
 
   try {
-    // Build the full schema.org Recipe HTML page
-    var schema = {
-      "@context": "https://schema.org",
-      "@type": "Recipe",
-      "name": parsedRecipe.name || "",
-      "description": parsedRecipe.description || "",
-      "recipeYield": parsedRecipe.recipeYield || "",
-      "prepTime": parsedRecipe.prepTime || "PT0M",
-      "cookTime": parsedRecipe.cookTime || "PT0M",
-      "totalTime": parsedRecipe.totalTime || "PT0M",
-      "recipeCategory": parsedRecipe.recipeCategory || "",
-      "recipeCuisine": parsedRecipe.recipeCuisine || "",
-      "keywords": parsedRecipe.keywords || "",
-      "recipeIngredient": parsedRecipe.recipeIngredient || [],
-      "recipeInstructions": (parsedRecipe.recipeInstructions || []).map(function(s, i) {
-        return { "@type": "HowToStep", "position": i + 1, "text": s };
+    var pageHtml = buildRecipePage(parsedRecipe);
+    var fileName = "recipes/" + slugify(parsedRecipe.name) + "-" + Date.now() + ".html";
+    var encoded = btoa(unescape(encodeURIComponent(pageHtml)));
+
+    var apiUrl = "https://api.github.com/repos/" + gu + "/recipe-tool/contents/" + fileName;
+
+    var resp = await fetch(apiUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "token " + gt,
+        "Accept": "application/vnd.github.v3+json"
+      },
+      body: JSON.stringify({
+        message: "Add recipe: " + (parsedRecipe.name || "recipe"),
+        content: encoded
       })
-    };
-    if (parsedRecipe.nutrition && parsedRecipe.nutrition.calories) {
-      schema.nutrition = { "@type": "NutritionInformation", "calories": parsedRecipe.nutrition.calories };
-    }
-
-    // Build ingredient and instruction HTML
-    var ingsHtml = (parsedRecipe.recipeIngredient || []).map(function(i) {
-      return "<li>" + escHtml(i) + "</li>";
-    }).join("");
-
-    var stepsHtml = (parsedRecipe.recipeInstructions || []).map(function(s, idx) {
-      return "<li>" + escHtml(s) + "</li>";
-    }).join("");
-
-    var pageHtml = '<!DOCTYPE html>' +
-      '<html lang="en"><head>' +
-      '<meta charset="UTF-8">' +
-      '<title>' + escHtml(parsedRecipe.name || "Recipe") + '</title>' +
-      '<script type="application/ld+json">' +
-      JSON.stringify(schema) +
-      '<\/script>' +
-      '</head><body>' +
-      '<h1>' + escHtml(parsedRecipe.name || "Recipe") + '</h1>' +
-      (parsedRecipe.description ? '<p>' + escHtml(parsedRecipe.description) + '</p>' : '') +
-      '<ul>' + ingsHtml + '</ul>' +
-      '<ol>' + stepsHtml + '</ol>' +
-      '</body></html>';
-
-    // Upload to jsonblob.com as a blob
-    var uploadResp = await fetch("https://jsonblob.com/api/jsonBlob", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ html: pageHtml, schema: schema })
     });
 
-    if (!uploadResp.ok) {
-      throw new Error("Upload failed with status " + uploadResp.status);
+    if (!resp.ok) {
+      var err = await resp.json().catch(function() { return {}; });
+      throw new Error(err.message || "GitHub API error " + resp.status);
     }
 
-    // jsonblob returns the URL in the Location header
-    var location = uploadResp.headers.get("Location");
-    if (!location) {
-      throw new Error("No URL returned from upload service.");
-    }
+    var result = await resp.json();
+    var pagesUrl = "https://" + gu + ".github.io/recipe-tool/" + fileName;
 
-    document.getElementById("urlDisplay").value = location;
+    document.getElementById("urlDisplay").value = pagesUrl;
     document.getElementById("urlBox").style.display = "block";
-    setStatus("uploadStatus", "success", "Ready! Copy the URL and paste it into AnyList.");
+    setStatus("uploadStatus", "success", "Recipe saved! Copy the URL below and paste it into AnyList. Note: it may take 1-2 minutes before the URL is live.");
 
   } catch(e) {
-    // jsonblob may not work due to CORS -- fall back to a direct data approach
-    // Try using a CORS proxy or alternative
-    try {
-      await uploadViaAlternative();
-    } catch(e2) {
-      setStatus("uploadStatus", "error", "Upload failed: " + (e.message || "Try again.") + " -- " + (e2.message || ""));
-    }
+    setStatus("uploadStatus", "error", "Error: " + (e.message || "Something went wrong. Check your GitHub token and username."));
   } finally {
     btn.disabled = false;
   }
-}
-
-async function uploadViaAlternative() {
-  // Use paste.rs as an alternative -- it accepts plain text via PUT
-  var schema = {
-    "@context": "https://schema.org",
-    "@type": "Recipe",
-    "name": parsedRecipe.name || "",
-    "description": parsedRecipe.description || "",
-    "recipeYield": parsedRecipe.recipeYield || "",
-    "prepTime": parsedRecipe.prepTime || "PT0M",
-    "cookTime": parsedRecipe.cookTime || "PT0M",
-    "totalTime": parsedRecipe.totalTime || "PT0M",
-    "recipeCategory": parsedRecipe.recipeCategory || "",
-    "recipeCuisine": parsedRecipe.recipeCuisine || "",
-    "keywords": parsedRecipe.keywords || "",
-    "recipeIngredient": parsedRecipe.recipeIngredient || [],
-    "recipeInstructions": (parsedRecipe.recipeInstructions || []).map(function(s, i) {
-      return { "@type": "HowToStep", "position": i + 1, "text": s };
-    })
-  };
-
-  var ingsHtml = (parsedRecipe.recipeIngredient || []).map(function(i) {
-    return "<li>" + escHtml(i) + "</li>";
-  }).join("");
-  var stepsHtml = (parsedRecipe.recipeInstructions || []).map(function(s) {
-    return "<li>" + escHtml(s) + "</li>";
-  }).join("");
-
-  var pageHtml = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>' +
-    escHtml(parsedRecipe.name || "Recipe") +
-    '</title><script type="application/ld+json">' +
-    JSON.stringify(schema) +
-    '<\/script></head><body><h1>' +
-    escHtml(parsedRecipe.name || "Recipe") +
-    '</h1><ul>' + ingsHtml + '</ul><ol>' + stepsHtml + '</ol></body></html>';
-
-  var resp = await fetch("https://paste.rs/", {
-    method: "POST",
-    headers: { "Content-Type": "text/html" },
-    body: pageHtml
-  });
-
-  if (!resp.ok) throw new Error("Alternative upload failed: " + resp.status);
-  var url = await resp.text();
-  url = url.trim();
-  document.getElementById("urlDisplay").value = url;
-  document.getElementById("urlBox").style.display = "block";
-  setStatus("uploadStatus", "success", "Ready! Copy the URL and paste it into AnyList.");
 }
 
 function copyURL() {
   var input = document.getElementById("urlDisplay");
   input.select();
   navigator.clipboard.writeText(input.value).then(function() {
-    document.querySelector(".copy-btn").textContent = "Copied!";
+    document.getElementById("copyBtn").textContent = "Copied!";
     setTimeout(function() {
-      document.querySelector(".copy-btn").textContent = "Copy URL";
+      document.getElementById("copyBtn").textContent = "Copy URL";
     }, 2000);
   }).catch(function() {
     document.execCommand("copy");
