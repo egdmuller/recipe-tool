@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Recipe Schema Generator</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Georgia, serif; background: #f5f5f0; color: #1a1a1a; min-height: 100vh; }
+header { background: #2c2c2c; color: #f5f5f0; padding: 1.5rem 2rem; }
+header h1 { font-size: 1.6rem; font-weight: normal; }
+header h1 span { color: #c8784a; font-style: italic; }
+header p { margin-top: 0.4rem; font-size: 0.82rem; color: #aaa; font-family: Arial, sans-serif; line-height: 1.5; }
+#keyBar { background: #3c3c3c; padding: 0.75rem 2rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+#keyBar label { font-size: 0.78rem; font-family: Arial, sans-serif; color: #ccc; white-space: nowrap; }
+#keyInput { flex: 1; min-width: 200px; max-width: 420px; padding: 0.4rem 0.65rem; font-family: Arial, sans-serif; font-size: 0.78rem; border: 1px solid #555; border-radius: 3px; background: #2c2c2c; color: #f5f5f0; outline: none; }
+#keyInput:focus { border-color: #c8784a; }
+#saveKeyBtn { padding: 0.4rem 0.9rem; background: #c8784a; color: #fff; border: none; border-radius: 3px; font-family: Arial, sans-serif; font-size: 0.78rem; cursor: pointer; white-space: nowrap; }
+#saveKeyBtn:hover { background: #a85e35; }
+#keyStatus { font-size: 0.75rem; font-family: Arial, sans-serif; color: #8c8; }
+main { max-width: 1040px; margin: 0 auto; padding: 2rem 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; align-items: start; }
+.panel { background: #fff; border: 1px solid #ddd; border-radius: 4px; }
+.panel-head { padding: 0.9rem 1.2rem; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between; }
+.panel-head h2 { font-size: 0.95rem; font-weight: normal; color: #5a3e1b; }
+.step { width: 22px; height: 22px; background: #c8784a; color: #fff; border-radius: 50%; font-size: 0.7rem; font-family: Arial, sans-serif; display: flex; align-items: center; justify-content: center; }
+.panel-body { padding: 1.2rem; }
+textarea { width: 100%; min-height: 280px; border: 1px solid #ddd; border-radius: 3px; padding: 0.8rem; font-family: Arial, sans-serif; font-size: 0.82rem; color: #1a1a1a; background: #faf9f7; resize: vertical; line-height: 1.6; outline: none; }
+textarea:focus { border-color: #5a3e1b; }
+.hint { margin-top: 0.6rem; font-size: 0.74rem; color: #888; font-family: Arial, sans-serif; line-height: 1.5; }
+.btn { width: 100%; margin-top: 0.85rem; padding: 0.8rem; background: #c8784a; color: #fff; border: none; border-radius: 3px; font-family: Arial, sans-serif; font-size: 0.85rem; cursor: pointer; }
+.btn:hover { background: #a85e35; }
+.btn:disabled { background: #ccc; cursor: not-allowed; }
+.btn-green { background: #3a7a3a; margin-top: 0.5rem; }
+.btn-green:hover { background: #2a5a2a; }
+.btn-green:disabled { background: #ccc; cursor: not-allowed; }
+.status { margin-top: 0.75rem; padding: 0.7rem 0.85rem; border-radius: 3px; font-size: 0.78rem; font-family: Arial, sans-serif; line-height: 1.5; display: none; }
+.status.loading { display: block; background: #fdf8f0; color: #5a3e1b; border: 1px solid #ddd; }
+.status.error { display: block; background: #fff0ee; color: #a02010; border: 1px solid #f0c0b0; }
+.status.success { display: block; background: #eef5ee; color: #2a6a2a; border: 1px solid #b0d0b0; }
+.empty { padding: 2.5rem 1.2rem; text-align: center; color: #aaa; font-family: Arial, sans-serif; font-size: 0.82rem; line-height: 1.6; }
+.preview { display: none; padding: 1.2rem; }
+.preview.show { display: block; }
+.prev-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 0.3rem; line-height: 1.2; }
+.prev-desc { font-size: 0.8rem; color: #888; font-family: Arial, sans-serif; line-height: 1.5; margin-bottom: 1rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.1rem; padding-bottom: 1.1rem; border-bottom: 1px solid #ddd; }
+.chip { background: #faf9f7; border: 1px solid #ddd; border-radius: 3px; padding: 0.22rem 0.55rem; font-size: 0.7rem; font-family: Arial, sans-serif; color: #5a3e1b; }
+.chip strong { display: block; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.06em; color: #aaa; margin-bottom: 1px; }
+.sec-title { font-size: 0.9rem; font-weight: bold; color: #5a3e1b; margin-bottom: 0.55rem; padding-bottom: 0.25rem; border-bottom: 1px solid #ddd; }
+.ing-list { list-style: none; margin-bottom: 1.1rem; }
+.ing-list li { font-size: 0.78rem; font-family: Arial, sans-serif; padding: 0.28rem 0 0.28rem 0.9rem; border-bottom: 1px solid #f0ece6; position: relative; line-height: 1.5; }
+.ing-list li::before { content: ""; width: 5px; height: 5px; background: #c8784a; border-radius: 50%; position: absolute; left: 0; top: 0.5rem; }
+.step-list { list-style: none; margin-bottom: 1.1rem; }
+.step-list li { font-size: 0.78rem; font-family: Arial, sans-serif; padding: 0.4rem 0 0.4rem 1.85rem; border-bottom: 1px solid #f0ece6; position: relative; line-height: 1.55; }
+.step-list li .num { position: absolute; left: 0; top: 0.4rem; width: 18px; height: 18px; background: #2c2c2c; color: #fff; border-radius: 50%; font-size: 0.6rem; display: flex; align-items: center; justify-content: center; }
+.url-box { margin-top: 1rem; padding: 1rem; background: #f0f5ee; border: 1px solid #b0d0b0; border-radius: 3px; }
+.url-box p { font-size: 0.78rem; font-family: Arial, sans-serif; color: #2a4a2a; margin-bottom: 0.5rem; font-weight: bold; }
+.url-box .url-steps { font-size: 0.74rem; font-family: Arial, sans-serif; color: #3a5a3a; line-height: 1.8; margin-bottom: 0.65rem; }
+.url-display { width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #b0d0b0; border-radius: 3px; font-family: Arial, sans-serif; font-size: 0.75rem; color: #1a1a1a; background: #fff; cursor: pointer; }
+.copy-btn { width: 100%; margin-top: 0.4rem; padding: 0.5rem; background: #3a7a3a; color: #fff; border: none; border-radius: 3px; font-family: Arial, sans-serif; font-size: 0.78rem; cursor: pointer; }
+.copy-btn:hover { background: #2a5a2a; }
+@media (max-width: 680px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Recipe <span>Schema</span> Generator</h1>
+  <p>Paste any recipe, parse it with Claude, then send it straight to AnyList with one click.</p>
+</header>
+
+<div id="keyBar">
+  <label for="keyInput">Anthropic API Key:</label>
+  <input type="password" id="keyInput" placeholder="sk-ant-..." autocomplete="off" />
+  <button id="saveKeyBtn" onclick="saveKey()">Save Key</button>
+  <span id="keyStatus"></span>
+</div>
+
+<main>
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Paste your recipe</h2>
+      <span class="step">1</span>
+    </div>
+    <div class="panel-body">
+      <textarea id="recipeInput" placeholder="Paste your recipe here -- any format works.
+
+Example:
+Classic Beef Stew
+Serves 6 | Prep: 20 min | Cook: 2 hours
+
+Ingredients:
+- 2 lbs beef chuck, cut into 1-inch cubes
+- 3 carrots, sliced
+- 4 potatoes, diced
+
+Instructions:
+1. Brown the beef in a large pot...
+2. Add vegetables and broth..."></textarea>
+      <p class="hint">Works with any format -- copied from a website, typed by hand, or pasted from notes.</p>
+      <button class="btn" id="genBtn" onclick="generate()">Step 1: Parse Recipe</button>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Send to AnyList</h2>
+      <span class="step">2</span>
+    </div>
+    <div class="empty" id="empty">
+      Parse a recipe first, then you will get a URL to paste into AnyList.
+    </div>
+    <div class="preview" id="preview">
+      <div class="prev-title" id="pTitle"></div>
+      <div class="prev-desc" id="pDesc"></div>
+      <div class="chips" id="pChips"></div>
+      <div id="pIng"></div>
+      <div id="pSteps"></div>
+
+      <button class="btn btn-green" id="uploadBtn" onclick="uploadAndGetURL()">Step 2: Get AnyList Import URL</button>
+      <div class="status" id="uploadStatus"></div>
+
+      <div class="url-box" id="urlBox" style="display:none;">
+        <p>Your recipe is ready to import into AnyList!</p>
+        <div class="url-steps">
+          1. Copy the URL below<br>
+          2. Open AnyList<br>
+          3. Tap Add Recipe, then "Import from URL"<br>
+          4. Paste the URL and import
+        </div>
+        <input type="text" class="url-display" id="urlDisplay" readonly onclick="this.select();" />
+        <button class="copy-btn" onclick="copyURL()">Copy URL</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+var parsedRecipe = null;
+
+var SYSTEM = "You are a recipe parser. Extract structured data from recipe text. Return ONLY valid JSON, no markdown, no explanation, no code fences.\n\nReturn this exact structure:\n{\n  \"name\": \"Recipe title\",\n  \"description\": \"1-2 sentence description (infer if missing)\",\n  \"prepTime\": \"PT20M\",\n  \"cookTime\": \"PT1H30M\",\n  \"totalTime\": \"PT1H50M\",\n  \"recipeYield\": \"4 servings\",\n  \"recipeCategory\": \"Dinner\",\n  \"recipeCuisine\": \"Italian\",\n  \"keywords\": \"keyword1, keyword2\",\n  \"recipeIngredient\": [\"2 cups flour\", \"1 tsp salt\"],\n  \"recipeInstructions\": [\"Step text\", \"Step text\"],\n  \"nutrition\": { \"calories\": \"320 calories\" }\n}\nRules:\n- Times use ISO 8601 format: PT20M means 20 minutes, PT1H means 1 hour, PT1H30M means 1 hour 30 minutes. Use PT0M if unknown.\n- Strip any leading numbers or dots from instruction steps.\n- For unknown fields use empty string or empty array.\n- Always write a useful description even if you have to infer it.\n- recipeYield must include a unit such as servings or cookies.";
+
+window.onload = function() {
+  var saved = localStorage.getItem("anthropic_api_key");
+  if (saved) {
+    document.getElementById("keyInput").value = saved;
+    document.getElementById("keyStatus").textContent = "Key loaded.";
+  }
+};
+
+function saveKey() {
+  var key = document.getElementById("keyInput").value.trim();
+  if (!key) {
+    document.getElementById("keyStatus").textContent = "Please enter a key first.";
+    document.getElementById("keyStatus").style.color = "#c84a2a";
+    return;
+  }
+  if (!key.startsWith("sk-ant-")) {
+    document.getElementById("keyStatus").textContent = "That does not look right -- key should start with sk-ant-";
+    document.getElementById("keyStatus").style.color = "#c84a2a";
+    return;
+  }
+  localStorage.setItem("anthropic_api_key", key);
+  document.getElementById("keyStatus").textContent = "Key saved.";
+  document.getElementById("keyStatus").style.color = "#8c8";
+}
+
+function setStatus(id, type, msg) {
+  var el = document.getElementById(id);
+  el.className = "status " + type;
+  el.innerHTML = msg;
+}
+
+function dur(iso) {
+  if (!iso || iso === "PT0M") return "";
+  var h = iso.match(/(\d+)H/);
+  var m = iso.match(/(\d+)M/);
+  var parts = [];
+  if (h) parts.push(h[1] + " hr");
+  if (m) parts.push(m[1] + " min");
+  return parts.join(" ");
+}
+
+function escHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function generate() {
+  var key = localStorage.getItem("anthropic_api_key") || document.getElementById("keyInput").value.trim();
+  if (!key) {
+    setStatus("status", "error", "Please enter and save your API key first.");
+    return;
+  }
+  var input = document.getElementById("recipeInput").value.trim();
+  if (!input) {
+    setStatus("status", "error", "Please paste a recipe first.");
+    return;
+  }
+
+  var btn = document.getElementById("genBtn");
+  btn.disabled = true;
+  setStatus("status", "loading", "Parsing recipe with Claude...");
+  document.getElementById("empty").style.display = "none";
+  document.getElementById("preview").classList.remove("show");
+  document.getElementById("urlBox").style.display = "none";
+
+  try {
+    var resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1500,
+        system: SYSTEM,
+        messages: [{ role: "user", content: input }]
+      })
+    });
+
+    if (!resp.ok) {
+      var err = await resp.json().catch(function() { return {}; });
+      throw new Error(err.error ? err.error.message : "API error " + resp.status);
+    }
+
+    var data = await resp.json();
+    var raw = data.content.map(function(b) { return b.text || ""; }).join("");
+    var clean = raw.replace(/```json/g, "").replace(/```/g, "").trim();
+    parsedRecipe = JSON.parse(clean);
+
+    renderPreview(parsedRecipe);
+    setStatus("status", "success", "Recipe parsed. Now click Step 2 to get your AnyList import URL.");
+
+  } catch(e) {
+    setStatus("status", "error", "Error: " + (e.message || "Something went wrong. Try again."));
+    document.getElementById("empty").style.display = "block";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderPreview(r) {
+  document.getElementById("pTitle").textContent = r.name || "Untitled Recipe";
+  document.getElementById("pDesc").textContent = r.description || "";
+
+  var chips = document.getElementById("pChips");
+  chips.innerHTML = "";
+  var meta = [
+    ["Yield", r.recipeYield],
+    ["Prep", dur(r.prepTime)],
+    ["Cook", dur(r.cookTime)],
+    ["Total", dur(r.totalTime)],
+    ["Category", r.recipeCategory],
+    ["Cuisine", r.recipeCuisine]
+  ];
+  meta.forEach(function(pair) {
+    if (pair[1]) {
+      chips.innerHTML += "<div class=\"chip\"><strong>" + pair[0] + "</strong>" + escHtml(pair[1]) + "</div>";
+    }
+  });
+
+  var ingEl = document.getElementById("pIng");
+  if (r.recipeIngredient && r.recipeIngredient.length) {
+    ingEl.innerHTML = "<div class=\"sec-title\">Ingredients</div><ul class=\"ing-list\">" +
+      r.recipeIngredient.map(function(i) { return "<li>" + escHtml(i) + "</li>"; }).join("") +
+      "</ul>";
+  } else {
+    ingEl.innerHTML = "";
+  }
+
+  var stepsEl = document.getElementById("pSteps");
+  if (r.recipeInstructions && r.recipeInstructions.length) {
+    stepsEl.innerHTML = "<div class=\"sec-title\">Instructions</div><ol class=\"step-list\">" +
+      r.recipeInstructions.map(function(s, i) {
+        return "<li><span class=\"num\">" + (i+1) + "</span>" + escHtml(s) + "</li>";
+      }).join("") +
+      "</ol>";
+  } else {
+    stepsEl.innerHTML = "";
+  }
+
+  document.getElementById("preview").classList.add("show");
+}
+
+async function uploadAndGetURL() {
+  if (!parsedRecipe) return;
+
+  var btn = document.getElementById("uploadBtn");
+  btn.disabled = true;
+  setStatus("uploadStatus", "loading", "Uploading recipe data...");
+  document.getElementById("urlBox").style.display = "none";
+
+  try {
+    // Build the full schema.org Recipe HTML page
+    var schema = {
+      "@context": "https://schema.org",
+      "@type": "Recipe",
+      "name": parsedRecipe.name || "",
+      "description": parsedRecipe.description || "",
+      "recipeYield": parsedRecipe.recipeYield || "",
+      "prepTime": parsedRecipe.prepTime || "PT0M",
+      "cookTime": parsedRecipe.cookTime || "PT0M",
+      "totalTime": parsedRecipe.totalTime || "PT0M",
+      "recipeCategory": parsedRecipe.recipeCategory || "",
+      "recipeCuisine": parsedRecipe.recipeCuisine || "",
+      "keywords": parsedRecipe.keywords || "",
+      "recipeIngredient": parsedRecipe.recipeIngredient || [],
+      "recipeInstructions": (parsedRecipe.recipeInstructions || []).map(function(s, i) {
+        return { "@type": "HowToStep", "position": i + 1, "text": s };
+      })
+    };
+    if (parsedRecipe.nutrition && parsedRecipe.nutrition.calories) {
+      schema.nutrition = { "@type": "NutritionInformation", "calories": parsedRecipe.nutrition.calories };
+    }
+
+    // Build ingredient and instruction HTML
+    var ingsHtml = (parsedRecipe.recipeIngredient || []).map(function(i) {
+      return "<li>" + escHtml(i) + "</li>";
+    }).join("");
+
+    var stepsHtml = (parsedRecipe.recipeInstructions || []).map(function(s, idx) {
+      return "<li>" + escHtml(s) + "</li>";
+    }).join("");
+
+    var pageHtml = '<!DOCTYPE html>' +
+      '<html lang="en"><head>' +
+      '<meta charset="UTF-8">' +
+      '<title>' + escHtml(parsedRecipe.name || "Recipe") + '</title>' +
+      '<script type="application/ld+json">' +
+      JSON.stringify(schema) +
+      '<\/script>' +
+      '</head><body>' +
+      '<h1>' + escHtml(parsedRecipe.name || "Recipe") + '</h1>' +
+      (parsedRecipe.description ? '<p>' + escHtml(parsedRecipe.description) + '</p>' : '') +
+      '<ul>' + ingsHtml + '</ul>' +
+      '<ol>' + stepsHtml + '</ol>' +
+      '</body></html>';
+
+    // Upload to jsonblob.com as a blob
+    var uploadResp = await fetch("https://jsonblob.com/api/jsonBlob", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ html: pageHtml, schema: schema })
+    });
+
+    if (!uploadResp.ok) {
+      throw new Error("Upload failed with status " + uploadResp.status);
+    }
+
+    // jsonblob returns the URL in the Location header
+    var location = uploadResp.headers.get("Location");
+    if (!location) {
+      throw new Error("No URL returned from upload service.");
+    }
+
+    document.getElementById("urlDisplay").value = location;
+    document.getElementById("urlBox").style.display = "block";
+    setStatus("uploadStatus", "success", "Ready! Copy the URL and paste it into AnyList.");
+
+  } catch(e) {
+    // jsonblob may not work due to CORS -- fall back to a direct data approach
+    // Try using a CORS proxy or alternative
+    try {
+      await uploadViaAlternative();
+    } catch(e2) {
+      setStatus("uploadStatus", "error", "Upload failed: " + (e.message || "Try again.") + " -- " + (e2.message || ""));
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function uploadViaAlternative() {
+  // Use paste.rs as an alternative -- it accepts plain text via PUT
+  var schema = {
+    "@context": "https://schema.org",
+    "@type": "Recipe",
+    "name": parsedRecipe.name || "",
+    "description": parsedRecipe.description || "",
+    "recipeYield": parsedRecipe.recipeYield || "",
+    "prepTime": parsedRecipe.prepTime || "PT0M",
+    "cookTime": parsedRecipe.cookTime || "PT0M",
+    "totalTime": parsedRecipe.totalTime || "PT0M",
+    "recipeCategory": parsedRecipe.recipeCategory || "",
+    "recipeCuisine": parsedRecipe.recipeCuisine || "",
+    "keywords": parsedRecipe.keywords || "",
+    "recipeIngredient": parsedRecipe.recipeIngredient || [],
+    "recipeInstructions": (parsedRecipe.recipeInstructions || []).map(function(s, i) {
+      return { "@type": "HowToStep", "position": i + 1, "text": s };
+    })
+  };
+
+  var ingsHtml = (parsedRecipe.recipeIngredient || []).map(function(i) {
+    return "<li>" + escHtml(i) + "</li>";
+  }).join("");
+  var stepsHtml = (parsedRecipe.recipeInstructions || []).map(function(s) {
+    return "<li>" + escHtml(s) + "</li>";
+  }).join("");
+
+  var pageHtml = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>' +
+    escHtml(parsedRecipe.name || "Recipe") +
+    '</title><script type="application/ld+json">' +
+    JSON.stringify(schema) +
+    '<\/script></head><body><h1>' +
+    escHtml(parsedRecipe.name || "Recipe") +
+    '</h1><ul>' + ingsHtml + '</ul><ol>' + stepsHtml + '</ol></body></html>';
+
+  var resp = await fetch("https://paste.rs/", {
+    method: "POST",
+    headers: { "Content-Type": "text/html" },
+    body: pageHtml
+  });
+
+  if (!resp.ok) throw new Error("Alternative upload failed: " + resp.status);
+  var url = await resp.text();
+  url = url.trim();
+  document.getElementById("urlDisplay").value = url;
+  document.getElementById("urlBox").style.display = "block";
+  setStatus("uploadStatus", "success", "Ready! Copy the URL and paste it into AnyList.");
+}
+
+function copyURL() {
+  var input = document.getElementById("urlDisplay");
+  input.select();
+  navigator.clipboard.writeText(input.value).then(function() {
+    document.querySelector(".copy-btn").textContent = "Copied!";
+    setTimeout(function() {
+      document.querySelector(".copy-btn").textContent = "Copy URL";
+    }, 2000);
+  }).catch(function() {
+    document.execCommand("copy");
+  });
+}
+</script>
+
+</body>
+</html>
